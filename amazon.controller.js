@@ -52,6 +52,7 @@ exports.siw = (driver, handleError, cb) => {
   const session = driver.session();
   let start = process.hrtime();
   let count = 0;
+  let relations = 0;
   const nodesPromise = new Promise((resolve, reject) => {
     amazonProducts.map((product, i, arr) => {
       session
@@ -68,13 +69,12 @@ exports.siw = (driver, handleError, cb) => {
             console.log(`Inserted ${count} nodes  📦`);
             console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
           }
-          if (i === arr.length - 1) resolve();
+          if (i === arr.length - 1) resolve(count);
         })
         .catch(reject);
     });
-  }).then(() => console.log("Nodes finished"));
+  });
   const relationsPromise = new Promise((resolve, reject) => {
-    let relations = 0;
     //create all relations
     amazonProducts
       .filter(product => product.related && product.related.length)
@@ -100,10 +100,6 @@ exports.siw = (driver, handleError, cb) => {
             if (count % 1000 === 0 && relations > 0) {
               const end = process.hrtime(start);
               start = process.hrtime();
-              if (relations < 1000)
-                console.log(
-                  `Inserted ${count - relations} nodes & Created ${relations} relations  🤝`
-                );
               console.log(`Created ${relations} relations  🤝`);
               console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
             }
@@ -111,9 +107,14 @@ exports.siw = (driver, handleError, cb) => {
           })
           .catch(reject);
       });
-  }).then(() => console.log("Relations finished"));
+  });
 
-  Promise.all([nodesPromise, relationsPromise])
+  return nodesPromise
+    .then(c => {
+      console.log(`Inserted ${c} nodes`);
+      return relationsPromise;
+    })
+    .then(() => console.log(`Inserted ${relations} nodes`))
     .then(() => {
       session.close();
       return cb();
