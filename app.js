@@ -1,6 +1,38 @@
 require("dotenv").config();
 const inquirer = require("inquirer");
-const controller = require("./controller");
+const controller = require("./controllers/controller");
+
+const choices = [
+  { name: "Say Hi", value: "salute", short: "salute" },
+  new inquirer.Separator(),
+  // Amazon
+  {
+    name: "🐳 (MIW) Create amazon graph",
+    value: "miw_amazon",
+    short: "massive insertion workload amazon"
+  },
+  {
+    name: "🐁 (SIW) Create amazon graph",
+    value: "siw_amazon",
+    short: "single insertion workload amazon"
+  },
+  { name: "Delete amazon graph", value: "delete_youtube", short: "delete amazon" },
+  new inquirer.Separator(),
+  // Youtube
+  {
+    name: "🐳 (MIW) Create youtube graph",
+    value: "miw_youtube",
+    short: "massive insertion workload youtube"
+  },
+  {
+    name: "🐁 (SIW) Create youtube graph",
+    value: "siw_youtube",
+    short: "single insertion workload youtube"
+  },
+  { name: "Delete youtube graph", value: "delete_youtube", short: "delete youtube" },
+  new inquirer.Separator(),
+  { name: "Quit", value: "quit", short: "quit" }
+];
 
 const ask = question =>
   inquirer
@@ -9,21 +41,8 @@ const ask = question =>
         type: "list",
         name: "task",
         message: question,
-        choices: [
-          { name: "Say Hi", value: "salute", short: "salute" },
-          {
-            name: "⛰️ (MIW) Create amazon graph",
-            value: "miw_amazon",
-            short: "massive insertion workload amazon"
-          },
-          {
-            name: "🐁 (SIW) Create amazon graph",
-            value: "siw_amazon",
-            short: "single insertion workload amazon"
-          },
-          { name: "Delete amazon graph", value: "delete_amazon", short: "delete amazon" },
-          { name: "Quit", value: "quit", short: "quit" }
-        ],
+        pageSize: choices.length,
+        choices,
         filter: function(val) {
           return val.toLowerCase();
         }

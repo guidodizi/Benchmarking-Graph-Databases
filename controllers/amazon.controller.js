@@ -1,4 +1,4 @@
-const amazonProducts = require("./data/amazon-products.json");
+const amazonProducts = require("../data/amazon-products.json");
 
 exports.miw = (driver, handleError, cb) => {
   const session = driver.session();

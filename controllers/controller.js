@@ -1,4 +1,5 @@
 const amazonController = require("./amazon.controller");
+const youtubeController = require("./youtube.controller");
 
 const neo4j = require("neo4j-driver").v1;
 const driver = neo4j.driver(
@@ -23,10 +24,16 @@ exports.salute = cb => {
   return cb();
 };
 
+// Amazon
 exports.miw_amazon = cb => amazonController.miw(driver, handleError, cb);
 
 exports.siw_amazon = cb => amazonController.siw(driver, handleError, cb);
 
 exports.delete_amazon = cb => amazonController.delete(driver, handleError, cb);
 
-exports.create_youtube = cb => {};
+// Youtube
+exports.miw_youtube = cb => youtubeController.miw(driver, handleError, cb);
+
+exports.siw_youtube = cb => youtubeController.siw(driver, handleError, cb);
+
+exports.delete_youtube = cb => youtubeController.delete(driver, handleError, cb);
