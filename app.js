@@ -11,7 +11,16 @@ const ask = question =>
         message: question,
         choices: [
           { name: "Say Hi", value: "salute", short: "salute" },
-          { name: "Create amazon graph", value: "create_amazon", short: "create amazon" },
+          {
+            name: "⛰️ (MIW) Create amazon graph",
+            value: "miw_amazon",
+            short: "massive insertion workload amazon"
+          },
+          {
+            name: "🐁 (SIW) Create amazon graph",
+            value: "siw_amazon",
+            short: "single insertion workload amazon"
+          },
           { name: "Delete amazon graph", value: "delete_amazon", short: "delete amazon" },
           { name: "Quit", value: "quit", short: "quit" }
         ],
