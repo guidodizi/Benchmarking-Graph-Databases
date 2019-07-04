@@ -11,8 +11,8 @@ const ask = question =>
         message: question,
         choices: [
           { name: "Say Hi", value: "salute", short: "salute" },
-          { name: "Insert all amazon products", value: "insert_all", short: "insert all" },
-          { name: "Delete all amazon products", value: "delete_all", short: "delete all" },
+          { name: "Create amazon graph", value: "create_amazon", short: "create amazon" },
+          { name: "Delete amazon graph", value: "delete_amazon", short: "delete amazon" },
           { name: "Quit", value: "quit", short: "quit" }
         ],
         filter: function(val) {
