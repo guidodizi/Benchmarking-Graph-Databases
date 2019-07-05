@@ -16,7 +16,7 @@ const choices = [
     value: "siw_amazon",
     short: "single insertion workload amazon"
   },
-  { name: "Delete amazon graph", value: "delete_youtube", short: "delete amazon" },
+  { name: "Delete amazon graph", value: "delete_amazon", short: "delete amazon" },
   new inquirer.Separator(),
   // Youtube
   {

@@ -128,7 +128,7 @@ exports.delete = (driver, handleError, cb) => {
     .run("MATCH(p:Product) DETACH DELETE p")
     .then(result => {
       session.close();
-      console.log(` ❌  Deleted all product nodes`);
+      console.log(` ❌  Deleted all amazon graph`);
       return cb();
     })
     .catch(handleError);
