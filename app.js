@@ -8,28 +8,41 @@ const choices = [
   // Amazon
   {
     name: "🐳 (MIW) Create amazon graph",
-    value: "miw_amazon",
+    value: "miw_amazon_neo",
     short: "massive insertion workload amazon"
   },
   {
     name: "🐁 (SIW) Create amazon graph",
-    value: "siw_amazon",
+    value: "siw_amazon_neo",
     short: "single insertion workload amazon"
   },
-  { name: "Delete amazon graph", value: "delete_youtube", short: "delete amazon" },
+  { name: "Delete amazon graph", value: "delete_amazon_neo", short: "delete amazon" },
   new inquirer.Separator(),
   // Youtube
   {
     name: "🐳 (MIW) Create youtube graph",
-    value: "miw_youtube",
+    value: "miw_youtube_neo",
     short: "massive insertion workload youtube"
   },
   {
     name: "🐁 (SIW) Create youtube graph",
-    value: "siw_youtube",
+    value: "siw_youtube_neo",
     short: "single insertion workload youtube"
   },
-  { name: "Delete youtube graph", value: "delete_youtube", short: "delete youtube" },
+  { name: "Delete youtube graph", value: "delete_youtube_neo", short: "delete youtube" },
+  new inquirer.Separator(),
+  // Amazon Orient
+  // {
+  //   name: "🐳 (MIW) Create amazon graph for OrientDB",
+  //   value: "miw_amazon_orient",
+  //   short: "massive insertion workload amazon OrientDB"
+  // },
+  {
+    name: "🐁 (SIW) Create amazon graph for OrientDB",
+    value: "siw_amazon_orient",
+    short: "single insertion workload amazon OrientDB"
+  },
+  { name: "Delete amazon graph for OrientDB", value: "delete_amazon_orient", short: "delete amazon OrientDB" },
   new inquirer.Separator(),
   { name: "Quit", value: "quit", short: "quit" }
 ];

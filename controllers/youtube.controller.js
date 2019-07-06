@@ -1,7 +1,7 @@
 const youtubeUsers = require("../data/youtube-users.json");
 const youtubeGroups = require("../data/youtube-groups.json");
 
-exports.miw = (driver, handleError, cb) => {
+exports.miw_neo = (driver, handleError, cb) => {
   const session = driver.session();
   const start = process.hrtime();
   const transaction = session.writeTransaction(tx => {
@@ -57,7 +57,7 @@ exports.miw = (driver, handleError, cb) => {
     .catch(handleError);
 };
 
-exports.siw = (driver, handleError, cb) => {
+exports.siw_neo = (driver, handleError, cb) => {
   // const session = driver.session();
   // let start = process.hrtime();
   // let count = 0;
@@ -131,7 +131,7 @@ exports.siw = (driver, handleError, cb) => {
   //   .catch(handleError);
 };
 
-exports.delete = (driver, handleError, cb) => {
+exports.delete_neo = (driver, handleError, cb) => {
   const session = driver.session();
   session
     .run("MATCH(u:User) MATCH(g:Group) DETACH DELETE u, g")

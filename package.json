@@ -11,6 +11,9 @@
   "dependencies": {
     "dotenv": "^8.0.0",
     "inquirer": "^6.4.1",
-    "neo4j-driver": "^1.7.5"
+    "neo4j-driver": "^1.7.5",
+    "async": "^3.1.0",
+    "csvtojson": "^2.0.10",
+    "orientjs": "^3.0.5"
   }
 }
