@@ -134,6 +134,62 @@ exports.delete_neo = (driver, handleError, cb) => {
     .catch(handleError);
 };
 
+exports.miw_orient = (server, handleError, cb) => {
+  const db = server.use(process.env.ORIENT_DB)
+  const start = process.hrtime();
+  var nodes = 0;
+  var relations = 0;
+  const first = amazonProducts.splice(0, 1)[0]
+  var nodesCreated = {}
+  var tx = db.let('node' + first.id, n => {
+    // create all products
+    n.create('vertex', 'V')
+      .set({
+        id: first.id,
+      })
+    nodes++;
+  })
+  nodesCreated['node' + first.id] = 1
+  amazonProducts.map(product => {
+    tx = tx.let('node' + product.id, n => {
+      // create all products
+      n.create('vertex', 'V')
+        .set({
+          id: product.id,
+        })
+      nodes++;
+    })
+    nodesCreated['node' + product.id] = true
+  });
+  amazonProducts.splice(0, 0, first)
+  console.log(nodesCreated)
+  amazonProducts.map(product => {
+    if (product.related) {
+      product.related.map(rel => {
+        // console.log('node' + rel)
+        if (nodesCreated['node' + rel]) {
+          tx = tx.let('ed', e => {
+            e.create('EDGE', 'E')
+              .from('$node' + product.id)
+              .to('$node' + rel)
+          })
+          relations++;
+        }
+      })
+    }
+  })
+
+  tx.commit().all()
+    .then(_ => {
+      db.close();
+      const end = process.hrtime(start);
+      console.log(`Inserted ${nodes} nodes  📦`);
+      console.log(`Created ${relations} relations  🤝`);
+      console.log(`⏰ Massive Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+      return cb();
+    })
+    .catch(handleError);
+};
 
 exports.siw_orient = (server, handleError, cb) => {
   const db = server.use(process.env.ORIENT_DB)
@@ -183,7 +239,7 @@ exports.siw_orient = (server, handleError, cb) => {
                   }
                 })
                 .catch(err => {
-                  if (err.message != 'No edge has been created because no target vertices\r\n\tDB name="BDNR"'){
+                  if (err.message != 'No edge has been created because no target vertices\r\n\tDB name="BDNR"') {
                     console.log(err)
                   }
                 });

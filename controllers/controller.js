@@ -38,6 +38,8 @@ exports.siw_amazon_neo = cb => amazonController.siw_neo(driver, handleError, cb)
 
 exports.delete_amazon_neo = cb => amazonController.delete_neo(driver, handleError, cb);
 
+exports.miw_amazon_orient = cb => amazonController.miw_orient(server, handleError, cb);
+
 exports.siw_amazon_orient = cb => amazonController.siw_orient(server, handleError, cb);
 
 exports.delete_amazon_orient = cb => amazonController.delete_orient(server, handleError, cb);

@@ -32,11 +32,11 @@ const choices = [
   { name: "Delete youtube graph", value: "delete_youtube_neo", short: "delete youtube" },
   new inquirer.Separator(),
   // Amazon Orient
-  // {
-  //   name: "🐳 (MIW) Create amazon graph for OrientDB",
-  //   value: "miw_amazon_orient",
-  //   short: "massive insertion workload amazon OrientDB"
-  // },
+  {
+    name: "🐳 (MIW) Create amazon graph for OrientDB",
+    value: "miw_amazon_orient",
+    short: "massive insertion workload amazon OrientDB"
+  },
   {
     name: "🐁 (SIW) Create amazon graph for OrientDB",
     value: "siw_amazon_orient",
