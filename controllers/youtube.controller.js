@@ -7,7 +7,7 @@ exports.miw_neo = (driver, handleError, cb) => {
   const transaction = session.writeTransaction(tx => {
     let nodes = 0;
     let relations = 0;
-    
+
     // create all users
     youtubeUsers.map(user => {
       tx.run("CREATE (u:User {id: $id}) RETURN u", {
@@ -70,7 +70,6 @@ exports.siw_neo = (driver, handleError, cb) => {
   //       })
   //       .then(result => {
   //         count++;
-
   //         // register time
   //         if (count % 1000 === 0 && count > 0) {
   //           const end = process.hrtime(start);
@@ -104,7 +103,6 @@ exports.siw_neo = (driver, handleError, cb) => {
   //         .then(result => {
   //           count++;
   //           relations++;
-
   //           // register time
   //           if (count % 1000 === 0 && relations > 0) {
   //             const end = process.hrtime(start);
@@ -117,7 +115,6 @@ exports.siw_neo = (driver, handleError, cb) => {
   //         .catch(reject);
   //     });
   // });
-
   // return nodesPromise
   //   .then(c => {
   //     console.log(`Inserted ${c} nodes`);
@@ -137,7 +134,7 @@ exports.delete_neo = (driver, handleError, cb) => {
     .run("MATCH(u:User) MATCH(g:Group) DETACH DELETE u, g")
     .then(result => {
       session.close();
-      console.log(` ❌  Deleted all product nodes`);
+      console.log(` ❌  Deleted all youtube graph`);
       return cb();
     })
     .catch(handleError);
