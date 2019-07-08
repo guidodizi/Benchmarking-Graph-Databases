@@ -44,6 +44,19 @@ const choices = [
   },
   { name: "Delete amazon graph for OrientDB", value: "delete_amazon_orient", short: "delete amazon OrientDB" },
   new inquirer.Separator(),
+  // Youtube Orient
+  {
+    name: "🐳 (MIW) Create youtube graph for OrientDB",
+    value: "miw_youtube_orient",
+    short: "massive insertion workload youtube OrientDB"
+  },
+  {
+    name: "🐁 (SIW) Create youtube graph for OrientDB",
+    value: "siw_youtube_orient",
+    short: "single insertion workload youtube OrientDB"
+  },
+  { name: "Delete youtube graph for OrientDB", value: "delete_youtube_orient", short: "delete youtube OrientDB" },
+  new inquirer.Separator(),
   { name: "Quit", value: "quit", short: "quit" }
 ];
 

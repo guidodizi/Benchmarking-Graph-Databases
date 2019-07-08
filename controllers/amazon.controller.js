@@ -149,7 +149,7 @@ exports.miw_orient = (server, handleError, cb) => {
       })
     nodes++;
   })
-  nodesCreated['node' + first.id] = 1
+  nodesCreated['node' + first.id] = true
   amazonProducts.map(product => {
     tx = tx.let('node' + product.id, n => {
       // create all products
@@ -259,7 +259,7 @@ exports.delete_orient = (server, handleError, cb) => {
     .then(
       function (del) {
         db.close()
-        console.log(` ❌  Deleted all product nodes`);
+        console.log(` ❌  Deleted all amazon graph`);
         return cb();
       }
     )

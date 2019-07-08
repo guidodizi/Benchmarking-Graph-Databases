@@ -50,3 +50,9 @@ exports.miw_youtube_neo = cb => youtubeController.miw_neo(driver, handleError, c
 exports.siw_youtube_neo = cb => youtubeController.siw_neo(driver, handleError, cb);
 
 exports.delete_youtube_neo = cb => youtubeController.delete_neo(driver, handleError, cb);
+
+exports.miw_youtube_orient = cb => youtubeController.miw_orient(server, handleError, cb);
+
+exports.siw_youtube_orient = cb => youtubeController.siw_orient(server, handleError, cb);
+
+exports.delete_youtube_orient = cb => youtubeController.delete_orient(server, handleError, cb);
