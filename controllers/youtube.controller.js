@@ -1,7 +1,7 @@
-const youtubeUsers = require("../data/youtube-users.json");
-const youtubeGroups = require("../data/youtube-groups.json");
+const youtubeUsers = require("../data/youtube-users-test.json");
+const youtubeGroups = require("../data/youtube-groups-test.json");
 
-exports.miw = (driver, handleError, cb) => {
+exports.miw_neo = (driver, handleError, cb) => {
   const session = driver.session();
   const start = process.hrtime();
   const transaction = session.writeTransaction(tx => {
@@ -57,7 +57,7 @@ exports.miw = (driver, handleError, cb) => {
     .catch(handleError);
 };
 
-exports.siw = (driver, handleError, cb) => {
+exports.siw_neo = (driver, handleError, cb) => {
   const session = driver.session();
   let start = process.hrtime();
   let count = 0;
@@ -152,7 +152,7 @@ exports.siw = (driver, handleError, cb) => {
     .catch(handleError);
 };
 
-exports.delete = (driver, handleError, cb) => {
+exports.delete_neo = (driver, handleError, cb) => {
   const session = driver.session();
   session
     .run("MATCH(u:User) MATCH(g:Group) DETACH DELETE u, g")
@@ -162,4 +162,95 @@ exports.delete = (driver, handleError, cb) => {
       return cb();
     })
     .catch(handleError);
+};
+
+exports.miw_orient = async (server, handleError, cb) => {
+  const db = server.use(process.env.ORIENT_DB);
+  const start = process.hrtime();
+  const first = youtubeUsers.splice(0, 1)[0];
+  let nodes = 0;
+  let relations = 0;
+  // var nodesCreated = {}
+
+  await Promise.all([db.query("CREATE CLASS U EXTENDS V"), db.query("CREATE CLASS G EXTENDS V")]);
+
+  // create first user
+  var tx = db.let("user" + first.id, n => {
+    n.create("vertex", "U").set({
+      id: first.id
+    });
+    nodes++;
+  });
+  // nodesCreated['user' + first.id] = true
+
+  // create all users
+  youtubeUsers.map(user => {
+    tx = tx.let("user" + user.id, n => {
+      n.create("vertex", "U").set({
+        id: user.id
+      });
+      nodes++;
+    });
+    // nodesCreated['user' + user.id] = true
+  });
+  youtubeUsers.splice(0, 0, first);
+
+  // create all groups
+  youtubeGroups.map(group => {
+    tx = tx.let("group" + group.id, n => {
+      n.create("vertex", "G").set({
+        id: group.id
+      });
+      nodes++;
+    });
+  });
+
+  //create all relations
+  youtubeUsers.map(user => {
+    if (user.belongs) {
+      user.belongs.map(gr => {
+        tx = tx.let("ed", e => {
+          e.create("EDGE", "E")
+            .from("$user" + user.id)
+            .to("$group" + gr);
+        });
+        relations++;
+      });
+    }
+  });
+
+  tx.commit()
+    .all()
+    .then(_ => {
+      db.close();
+      const end = process.hrtime(start);
+      console.log(`Inserted ${nodes} nodes  📦`);
+      console.log(`Created ${relations} relations  🤝`);
+      console.log(`⏰ Massive Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+      return cb();
+    })
+    .catch(handleError);
+};
+
+exports.delete_orient = async (server, handleError, cb) => {
+  const db = server.use(process.env.ORIENT_DB);
+  try {
+    await db.delete("VERTEX", "G").one();
+  } catch (e) {}
+  try {
+    await db.delete("VERTEX", "U").one();
+  } catch (e) {}
+  try {
+    await db.query("DROP CLASS G");
+  } catch (e) {}
+  db.query("DROP CLASS U")
+    .then(function(del) {
+      db.close();
+      console.log(` ❌  Deleted all youtube graph`);
+      return cb();
+    })
+    .catch(e => {
+      console.log(` ❌  Deleted all youtube graph`);
+      return cb();
+    });
 };
