@@ -29,6 +29,8 @@ exports.miw_amazon = cb => amazonController.miw(driver, handleError, cb);
 
 exports.siw_amazon = cb => amazonController.siw(driver, handleError, cb);
 
+exports.queries_amazon = cb => amazonController.queries(driver, handleError, cb);
+
 exports.delete_amazon = cb => amazonController.delete(driver, handleError, cb);
 
 // Youtube

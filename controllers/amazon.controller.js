@@ -2,7 +2,6 @@ const amazonProducts = require("../data/amazon-products.json");
 
 exports.miw = (driver, handleError, cb) => {
   const session = driver.session();
-  const start = process.hrtime();
   const transaction = session.writeTransaction(tx => {
     let nodes = 0;
     let relations = 0;
@@ -36,6 +35,7 @@ exports.miw = (driver, handleError, cb) => {
 
     return { nodes, relations };
   });
+  const start = process.hrtime();
   transaction
     .then(result => {
       session.close();
@@ -50,7 +50,6 @@ exports.miw = (driver, handleError, cb) => {
 
 exports.siw = (driver, handleError, cb) => {
   const session = driver.session();
-  let start = process.hrtime();
   let count = 0;
   let relations = 0;
   const nodesPromise = new Promise((resolve, reject) => {
@@ -108,7 +107,7 @@ exports.siw = (driver, handleError, cb) => {
           .catch(reject);
       });
   });
-
+  let start = process.hrtime();
   return nodesPromise
     .then(c => {
       console.log(`Inserted ${c} nodes`);
@@ -117,6 +116,47 @@ exports.siw = (driver, handleError, cb) => {
     .then(() => console.log(`Inserted ${relations} nodes`))
     .then(() => {
       session.close();
+      return cb();
+    })
+    .catch(handleError);
+};
+
+exports.queries = (driver, handleError, cb) => {
+  const session = driver.session();
+  const transaction = session.writeTransaction(tx => {
+    // find neighbours (FN)
+    tx.run(`
+      MATCH(p:Product)-->(q)
+      RETURN q
+    `);
+
+    // find adjacent nodes (FA)
+    tx.run(`
+      MATCH(p:Product)-[:RELATED]-(q)
+      RETURN q
+    `);
+
+    // find shortest path (FS)
+    const data = [...amazonProducts];
+    const head = data.shift();
+    const tail = data.sort(() => Math.random() - 0.5).slice(0, 100);
+    tail.map(product => {
+      tx.run(
+        `
+          MATCH (p:Product {id: $id}), (q:Product {id: $tail}),
+            path = shortestpath((p)-[:RELATED*]-(q))
+          RETURN path
+        `,
+        { id: head.id, tail: product.id }
+      );
+    });
+  });
+  let start = process.hrtime();
+  transaction
+    .then(() => {
+      session.close();
+      const end = process.hrtime(start);
+      console.log(`⏰ Query Workload: %ds %dms`, end[0], end[1] / 1000000);
       return cb();
     })
     .catch(handleError);

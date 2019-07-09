@@ -16,6 +16,11 @@ const choices = [
     value: "siw_amazon",
     short: "single insertion workload amazon"
   },
+  {
+    name: "🔍 (QW) Queries on amazon graph",
+    value: "queries_amazon",
+    short: "queries workload amazon"
+  },
   { name: "Delete amazon graph", value: "delete_amazon", short: "delete amazon" },
   new inquirer.Separator(),
   // Youtube
@@ -28,6 +33,11 @@ const choices = [
     name: "🐁 (SIW) Create youtube graph",
     value: "siw_youtube",
     short: "single insertion workload youtube"
+  },
+  {
+    name: "🔍 (QW) Queries on youtube graph",
+    value: "queries_youtube",
+    short: "queries workload youtube"
   },
   { name: "Delete youtube graph", value: "delete_youtube", short: "delete youtube" },
   new inquirer.Separator(),
