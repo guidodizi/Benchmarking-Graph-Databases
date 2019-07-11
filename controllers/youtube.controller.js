@@ -26,18 +26,18 @@ exports.miw_neo = (driver, handleError, cb) => {
     });
 
     //create all relations
-    youtubeUsers.map(user => {
-      if (user.belongs) {
-        user.belongs.map(gr => {
+    youtubeGroups.map(group => {
+      if (group.members) {
+        group.members.map(u => {
           tx.run(
             `
-              MATCH (u:User {id: $id})
-              MATCH (g:Group {id: $gr})
-              MERGE (u)-[:BELONGS]->(g);
+              MATCH (g:Group {id: $id})
+              MATCH (u:User {id: $u})
+              MERGE (g)-[:MEMBER]->(u);
             `,
             {
-              id: user.id,
-              gr
+              id: group.id,
+              u
             }
           );
           relations++;
@@ -60,74 +60,98 @@ exports.miw_neo = (driver, handleError, cb) => {
 };
 
 exports.siw_neo = (driver, handleError, cb) => {
-  // const session = driver.session();
-  // let start = process.hrtime();
-  // let count = 0;
-  // let relations = 0;
-  // const nodesPromise = new Promise((resolve, reject) => {
-  //   amazonProducts.map((product, i, arr) => {
-  //     session
-  //       .run("CREATE (p:Product {id: $id}) RETURN p", {
-  //         id: product.id
-  //       })
-  //       .then(result => {
-  //         count++;
-  //         // register time
-  //         if (count % 1000 === 0 && count > 0) {
-  //           const end = process.hrtime(start);
-  //           start = process.hrtime();
-  //           console.log(`Inserted ${count} nodes  📦`);
-  //           console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
-  //         }
-  //         if (i === arr.length - 1) resolve(count);
-  //       })
-  //       .catch(reject);
-  //   });
-  // });
-  // const relationsPromise = new Promise((resolve, reject) => {
-  //   //create all relations
-  //   amazonProducts
-  //     .filter(product => product.related && product.related.length)
-  //     .map(product => {
-  //       return product.related.map(rel => ({ id: product.id, related: rel }));
-  //     })
-  //     .reduce((acc, curr) => acc.concat(curr), [])
-  //     .map(({ id, related }, i, arr) => {
-  //       session
-  //         .run(
-  //           `
-  //           MATCH (p:Product {id: $id})
-  //           MATCH (q:Product {id: $related})
-  //           MERGE (p)-[:RELATED]->(q);
-  //         `,
-  //           { id, related }
-  //         )
-  //         .then(result => {
-  //           count++;
-  //           relations++;
-  //           // register time
-  //           if (count % 1000 === 0 && relations > 0) {
-  //             const end = process.hrtime(start);
-  //             start = process.hrtime();
-  //             console.log(`Created ${relations} relations  🤝`);
-  //             console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
-  //           }
-  //           if (i === arr.length - 1) resolve();
-  //         })
-  //         .catch(reject);
-  //     });
-  // });
-  // return nodesPromise
-  //   .then(c => {
-  //     console.log(`Inserted ${c} nodes`);
-  //     return relationsPromise;
-  //   })
-  //   .then(() => console.log(`Inserted ${relations} nodes`))
-  //   .then(() => {
-  //     session.close();
-  //     return cb();
-  //   })
-  //   .catch(handleError);
+  const session = driver.session();
+  let start = process.hrtime();
+  let count = 0;
+  let relations = 0;
+  const usersPromise = new Promise((resolve, reject) => {
+    youtubeUsers.map((user, i, arr) => {
+      session
+        .run("CREATE (p:User {id: $id}) RETURN p", {
+          id: user.id
+        })
+        .then(result => {
+          count++;
+          // register time
+          if (count % 1000 === 0 && count > 0) {
+            const end = process.hrtime(start);
+            start = process.hrtime();
+            console.log(`Inserted ${count} nodes  📦`);
+            console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+          }
+          if (i === arr.length - 1) resolve(count);
+        })
+        .catch(reject);
+    });
+  });
+  const groupsPromise = new Promise((resolve, reject) => {
+    youtubeGroups.map((group, i, arr) => {
+      session
+        .run("CREATE (p:Group {id: $id}) RETURN p", {
+          id: group.id
+        })
+        .then(result => {
+          count++;
+          // register time
+          if (count % 1000 === 0 && count > 0) {
+            const end = process.hrtime(start);
+            start = process.hrtime();
+            console.log(`Inserted ${count} nodes  📦`);
+            console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+          }
+          if (i === arr.length - 1) resolve(count);
+        })
+        .catch(reject);
+    });
+  });
+  const relationsPromise = new Promise((resolve, reject) => {
+    //create all relations
+    youtubeGroups
+      .filter(group => group.members && group.members.length)
+      .map(group => {
+        return group.members.map(mem => ({ id: group.id, member: mem }));
+      })
+      .reduce((acc, curr) => acc.concat(curr), [])
+      .map(({ id, member }, i, arr) => {
+        session
+          .run(
+            `
+            MATCH (u:User {id: $id})
+            MATCH (g:Group {id: $member})
+            MERGE (u)-[:MEMBER]->(g);
+          `,
+            { id, member }
+          )
+          .then(result => {
+            count++;
+            relations++;
+            // register time
+            if (count % 1000 === 0 && relations > 0) {
+              const end = process.hrtime(start);
+              start = process.hrtime();
+              console.log(`Created ${relations} relations  🤝`);
+              console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+            }
+            if (i === arr.length - 1) resolve();
+          })
+          .catch(reject);
+      });
+  });
+  return usersPromise
+    .then(c => {
+      console.log(`Inserted ${c} nodes`);
+      return groupsPromise;
+    })
+    .then(c => {
+      console.log(`Inserted ${c} nodes`);
+      return relationsPromise;
+    })
+    .then(() => console.log(`Inserted ${relations} nodes`))
+    .then(() => {
+      session.close();
+      return cb();
+    })
+    .catch(handleError);
 };
 
 exports.delete_neo = (driver, handleError, cb) => {
@@ -142,28 +166,23 @@ exports.delete_neo = (driver, handleError, cb) => {
     .catch(handleError);
 };
 
-
 exports.miw_orient = async (server, handleError, cb) => {
-  const db = server.use(process.env.ORIENT_DB)
+  const db = server.use(process.env.ORIENT_DB);
   const start = process.hrtime();
-  const first = youtubeUsers.splice(0, 1)[0]
+  const first = youtubeUsers.splice(0, 1)[0];
   let nodes = 0;
   let relations = 0;
   // var nodesCreated = {}
 
-  await Promise.all([
-    db.query('CREATE CLASS U EXTENDS V'),
-    db.query('CREATE CLASS G EXTENDS V')
-  ])
+  await Promise.all([db.query("CREATE CLASS U EXTENDS V"), db.query("CREATE CLASS G EXTENDS V")]);
 
   // create first user
-  var tx = db.let('user' + first.id, n => {
-    n.create('vertex', 'U')
-      .set({
-        id: first.id,
-      })
+  var tx = db.let("user" + first.id, n => {
+    n.create("vertex", "U").set({
+      id: first.id
+    });
     nodes++;
-  })
+  });
   // nodesCreated['user' + first.id] = true
 
   // create all users
@@ -307,7 +326,7 @@ exports.siw_orient = async (server, handleError, cb) => {
 }
 
 exports.delete_orient = async (server, handleError, cb) => {
-  const db = server.use(process.env.ORIENT_DB)
+  const db = server.use(process.env.ORIENT_DB);
   try {
     await db.delete('VERTEX', 'G').one()
   } catch (e) { }

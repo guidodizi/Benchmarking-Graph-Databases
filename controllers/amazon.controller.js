@@ -2,7 +2,6 @@ const amazonProducts = require("../data/amazon-products.json");
 
 exports.miw_neo = (driver, handleError, cb) => {
   const session = driver.session();
-  const start = process.hrtime();
   const transaction = session.writeTransaction(tx => {
     let nodes = 0;
     let relations = 0;
@@ -36,6 +35,7 @@ exports.miw_neo = (driver, handleError, cb) => {
 
     return { nodes, relations };
   });
+  const start = process.hrtime();
   transaction
     .then(result => {
       session.close();
@@ -50,7 +50,6 @@ exports.miw_neo = (driver, handleError, cb) => {
 
 exports.siw_neo = (driver, handleError, cb) => {
   const session = driver.session();
-  let start = process.hrtime();
   let count = 0;
   let relations = 0;
   const nodesPromise = new Promise((resolve, reject) => {
@@ -108,7 +107,7 @@ exports.siw_neo = (driver, handleError, cb) => {
           .catch(reject);
       });
   });
-
+  let start = process.hrtime();
   return nodesPromise
     .then(c => {
       console.log(`Inserted ${c} nodes`);
@@ -117,6 +116,47 @@ exports.siw_neo = (driver, handleError, cb) => {
     .then(() => console.log(`Inserted ${relations} nodes`))
     .then(() => {
       session.close();
+      return cb();
+    })
+    .catch(handleError);
+};
+
+exports.queries_neo = (driver, handleError, cb) => {
+  const session = driver.session();
+  const transaction = session.writeTransaction(tx => {
+    // find neighbours (FN)
+    tx.run(`
+      MATCH(p:Product)-->(q)
+      RETURN q
+    `);
+
+    // find adjacent nodes (FA)
+    tx.run(`
+      MATCH(p:Product)-[:RELATED]-(q)
+      RETURN q
+    `);
+
+    // find shortest path (FS)
+    const data = [...amazonProducts];
+    const head = data.shift();
+    const tail = data.sort(() => Math.random() - 0.5).slice(0, 100);
+    tail.map(product => {
+      tx.run(
+        `
+          MATCH (p:Product {id: $id}), (q:Product {id: $tail}),
+            path = shortestpath((p)-[:RELATED*]-(q))
+          RETURN path
+        `,
+        { id: head.id, tail: product.id }
+      );
+    });
+  });
+  let start = process.hrtime();
+  transaction
+    .then(() => {
+      session.close();
+      const end = process.hrtime(start);
+      console.log(`⏰ Query Workload: %ds %dms`, end[0], end[1] / 1000000);
       return cb();
     })
     .catch(handleError);
@@ -135,51 +175,50 @@ exports.delete_neo = (driver, handleError, cb) => {
 };
 
 exports.miw_orient = (server, handleError, cb) => {
-  const db = server.use(process.env.ORIENT_DB)
+  const db = server.use(process.env.ORIENT_DB);
   const start = process.hrtime();
   var nodes = 0;
   var relations = 0;
-  const first = amazonProducts.splice(0, 1)[0]
-  var nodesCreated = {}
-  var tx = db.let('node' + first.id, n => {
+  const first = amazonProducts.splice(0, 1)[0];
+  var nodesCreated = {};
+  var tx = db.let("node" + first.id, n => {
     // create all products
-    n.create('vertex', 'V')
-      .set({
-        id: first.id,
-      })
+    n.create("vertex", "V").set({
+      id: first.id
+    });
     nodes++;
-  })
-  nodesCreated['node' + first.id] = true
-  amazonProducts.map(product => {
-    tx = tx.let('node' + product.id, n => {
-      // create all products
-      n.create('vertex', 'V')
-        .set({
-          id: product.id,
-        })
-      nodes++;
-    })
-    nodesCreated['node' + product.id] = true
   });
-  amazonProducts.splice(0, 0, first)
-  console.log(nodesCreated)
+  nodesCreated["node" + first.id] = true;
+  amazonProducts.map(product => {
+    tx = tx.let("node" + product.id, n => {
+      // create all products
+      n.create("vertex", "V").set({
+        id: product.id
+      });
+      nodes++;
+    });
+    nodesCreated["node" + product.id] = true;
+  });
+  amazonProducts.splice(0, 0, first);
+  console.log(nodesCreated);
   amazonProducts.map(product => {
     if (product.related) {
       product.related.map(rel => {
         // console.log('node' + rel)
-        if (nodesCreated['node' + rel]) {
-          tx = tx.let('ed', e => {
-            e.create('EDGE', 'E')
-              .from('$node' + product.id)
-              .to('$node' + rel)
-          })
+        if (nodesCreated["node" + rel]) {
+          tx = tx.let("ed", e => {
+            e.create("EDGE", "E")
+              .from("$node" + product.id)
+              .to("$node" + rel);
+          });
           relations++;
         }
-      })
+      });
     }
-  })
+  });
 
-  tx.commit().all()
+  tx.commit()
+    .all()
     .then(_ => {
       db.close();
       const end = process.hrtime(start);
@@ -192,15 +231,14 @@ exports.miw_orient = (server, handleError, cb) => {
 };
 
 exports.siw_orient = (server, handleError, cb) => {
-  const db = server.use(process.env.ORIENT_DB)
+  const db = server.use(process.env.ORIENT_DB);
   let start = process.hrtime();
   let count = 0;
   let relations = 0;
   var products = {}
 
   amazonProducts.map((product, i, arr) => {
-    db
-      .query(`CREATE VERTEX V SET id = ${product.id}`)
+    db.query(`CREATE VERTEX V SET id = ${product.id}`)
       .then(result => {
         products[product.id] = result
         count++;
@@ -236,35 +274,36 @@ exports.siw_orient = (server, handleError, cb) => {
                     console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
                   }
                   if (i === arr.length - 1) {
-                    console.log(`Inserted ${relations} nodes`)
-                    db.close()
-                    return cb()
+                    console.log(`Inserted ${relations} nodes`);
+                    db.close();
+                    return cb();
                   }
                 })
                 .catch(err => {
-                  if (err.message != 'No edge has been created because no target vertices\r\n\tDB name="BDNR"') {
-                    console.log(err)
+                  if (
+                    err.message !=
+                    'No edge has been created because no target vertices\r\n\tDB name="BDNR"'
+                  ) {
+                    console.log(err);
                   }
                 });
             });
         }
       })
       .catch(err => {
-        console.log(err)
+        console.log(err);
       });
   });
-}
+};
 
 exports.delete_orient = (server, handleError, cb) => {
-  const db = server.use(process.env.ORIENT_DB)
-  db.delete('VERTEX', 'V')
+  const db = server.use(process.env.ORIENT_DB);
+  db.delete("VERTEX", "V")
     .one()
-    .then(
-      function (del) {
-        db.close()
-        console.log(` ❌  Deleted all amazon graph`);
-        return cb();
-      }
-    )
+    .then(function(del) {
+      db.close();
+      console.log(` ❌  Deleted all amazon graph`);
+      return cb();
+    })
     .catch(handleError);
 };

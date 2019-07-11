@@ -1,7 +1,7 @@
 const amazonController = require("./amazon.controller");
 const youtubeController = require("./youtube.controller");
 
-const OrientDB = require('orientjs');
+const OrientDB = require("orientjs");
 const neo4j = require("neo4j-driver").v1;
 const driver = neo4j.driver(
   process.env.NEO4J_URI,
@@ -9,10 +9,10 @@ const driver = neo4j.driver(
   { maxTransactionRetryTime: 30000 }
 );
 const server = OrientDB({
-  host:       process.env.ORIENT_URI,
-  port:       process.env.ORIENT_PORT,
-  username:   process.env.ORIENT_USER,
-  password:   process.env.ORIENT_PASSWORD
+  host: process.env.ORIENT_URI,
+  port: process.env.ORIENT_PORT,
+  username: process.env.ORIENT_USER,
+  password: process.env.ORIENT_PASSWORD
 });
 
 const handleError = err => {
@@ -35,6 +35,8 @@ exports.salute = cb => {
 exports.miw_amazon_neo = cb => amazonController.miw_neo(driver, handleError, cb);
 
 exports.siw_amazon_neo = cb => amazonController.siw_neo(driver, handleError, cb);
+
+exports.queries_amazon_neo = cb => amazonController.queries_neo(driver, handleError, cb);
 
 exports.delete_amazon_neo = cb => amazonController.delete_neo(driver, handleError, cb);
 
