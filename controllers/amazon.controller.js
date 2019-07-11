@@ -196,10 +196,13 @@ exports.siw_orient = (server, handleError, cb) => {
   let start = process.hrtime();
   let count = 0;
   let relations = 0;
+  var products = {}
+
   amazonProducts.map((product, i, arr) => {
     db
       .query(`CREATE VERTEX V SET id = ${product.id}`)
       .then(result => {
+        products[product.id] = result
         count++;
 
         // register time
@@ -218,10 +221,10 @@ exports.siw_orient = (server, handleError, cb) => {
             })
             .reduce((acc, curr) => acc.concat(curr), [])
             .map(({ id, related }, i, arr) => {
-              db
-                .query(`CREATE EDGE E FROM (SELECT FROM V WHERE id = ${id}) TO 
-                (SELECT FROM V WHERE id = ${related})`)
-                .then(result => {
+              db.create('EDGE', 'E')
+                .from(products[id])
+                .to(products[related])
+                .then(_ => {
                   count++;
                   relations++;
 
