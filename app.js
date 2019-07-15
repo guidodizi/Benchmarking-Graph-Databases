@@ -5,7 +5,7 @@ const controller = require("./controllers/controller");
 const choices = [
   { name: "Say Hi", value: "salute", short: "salute" },
   new inquirer.Separator(),
-  // Amazon
+  // Amazon operations
   {
     name: "🐳 (MIW) Create amazon graph",
     value: "miw_amazon_neo",
@@ -23,7 +23,7 @@ const choices = [
   },
   { name: "Delete amazon graph", value: "delete_amazon_neo", short: "delete amazon" },
   new inquirer.Separator(),
-  // Youtube
+  // Youtube operation
   {
     name: "🐳 (MIW) Create youtube graph",
     value: "miw_youtube_neo",
