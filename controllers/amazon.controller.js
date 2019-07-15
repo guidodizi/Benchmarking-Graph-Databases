@@ -1,4 +1,5 @@
 const amazonProducts = require("../data/amazon-products.json");
+const { asyncForEach } = require("../utils/async");
 
 exports.miw_neo = (driver, handleError, cb) => {
   const session = driver.session();
@@ -48,77 +49,69 @@ exports.miw_neo = (driver, handleError, cb) => {
     .catch(handleError);
 };
 
-exports.siw_neo = (driver, handleError, cb) => {
+exports.siw_neo = async (driver, handleError, cb) => {
   const session = driver.session();
   let count = 0;
   let relations = 0;
-  const nodesPromise = new Promise((resolve, reject) => {
-    amazonProducts.map((product, i, arr) => {
-      session
+  let start = process.hrtime();
+
+  const nodeCount = await new Promise((resolve, reject) => {
+    asyncForEach(amazonProducts, async (product, i, arr) => {
+      await session
         .run("CREATE (p:Product {id: $id}) RETURN p", {
           id: product.id
         })
-        .then(result => {
-          count++;
-
-          // register time
-          if (count % 1000 === 0 && count > 0) {
-            const end = process.hrtime(start);
-            start = process.hrtime();
-            console.log(`Inserted ${count} nodes  📦`);
-            console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
-          }
-          if (i === arr.length - 1) resolve(count);
-        })
         .catch(reject);
+
+      count++;
+      // register time
+      if (count % 1000 === 0 && count > 0) {
+        const end = process.hrtime(start);
+        start = process.hrtime();
+        console.log(`Inserted ${count} nodes  📦`);
+        console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+      }
+      if (i === arr.length - 1) resolve(count);
     });
-  });
-  const relationsPromise = new Promise((resolve, reject) => {
+  }).catch(handleError);
+  console.log(`Inserted ${nodeCount} nodes`);
+
+  const relationsCount = await new Promise((resolve, reject) => {
     //create all relations
-    amazonProducts
+    const relationsList = amazonProducts
       .filter(product => product.related && product.related.length)
       .map(product => {
         return product.related.map(rel => ({ id: product.id, related: rel }));
       })
-      .reduce((acc, curr) => acc.concat(curr), [])
-      .map(({ id, related }, i, arr) => {
-        session
-          .run(
-            `
+      .reduce((acc, curr) => acc.concat(curr), []);
+
+    asyncForEach(relationsList, async ({ id, related }, i, arr) => {
+      await session
+        .run(
+          `
             MATCH (p:Product {id: $id})
             MATCH (q:Product {id: $related})
             MERGE (p)-[:RELATED]->(q);
           `,
-            { id, related }
-          )
-          .then(result => {
-            count++;
-            relations++;
+          { id, related }
+        )
+        .catch(reject);
 
-            // register time
-            if (count % 1000 === 0 && relations > 0) {
-              const end = process.hrtime(start);
-              start = process.hrtime();
-              console.log(`Created ${relations} relations  🤝`);
-              console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
-            }
-            if (i === arr.length - 1) resolve();
-          })
-          .catch(reject);
-      });
-  });
-  let start = process.hrtime();
-  return nodesPromise
-    .then(c => {
-      console.log(`Inserted ${c} nodes`);
-      return relationsPromise;
-    })
-    .then(() => console.log(`Inserted ${relations} nodes`))
-    .then(() => {
-      session.close();
-      return cb();
-    })
-    .catch(handleError);
+      count++;
+      relations++;
+      // register time
+      if (count % 1000 === 0 && relations > 0) {
+        const end = process.hrtime(start);
+        start = process.hrtime();
+        console.log(`Created ${relations} relations  🤝`);
+        console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+      }
+      if (i === arr.length - 1) resolve();
+    });
+  }).catch(handleError);
+  console.log(`Inserted ${relationsCount} relations  🤝`);
+  session.close();
+  return cb();
 };
 
 exports.queries_neo = (driver, handleError, cb) => {
@@ -235,12 +228,12 @@ exports.siw_orient = (server, handleError, cb) => {
   let start = process.hrtime();
   let count = 0;
   let relations = 0;
-  var products = {}
+  var products = {};
 
   amazonProducts.map((product, i, arr) => {
     db.query(`CREATE VERTEX V SET id = ${product.id}`)
       .then(result => {
-        products[product.id] = result
+        products[product.id] = result;
         count++;
 
         // register time
@@ -259,7 +252,7 @@ exports.siw_orient = (server, handleError, cb) => {
             })
             .reduce((acc, curr) => acc.concat(curr), [])
             .map(({ id, related }, i, arr) => {
-              db.create('EDGE', 'E')
+              db.create("EDGE", "E")
                 .from(products[id])
                 .to(products[related])
                 .then(_ => {
