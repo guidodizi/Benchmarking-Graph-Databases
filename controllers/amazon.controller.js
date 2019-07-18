@@ -1,5 +1,6 @@
 const amazonProducts = require("../data/amazon-products.json");
 const { asyncForEach } = require("../utils/async");
+const async = require('async');
 
 exports.miw_neo = (driver, handleError, cb) => {
   const session = driver.session();
@@ -55,28 +56,29 @@ exports.siw_neo = async (driver, handleError, cb) => {
   let relations = 0;
   let start = process.hrtime();
 
-  const nodeCount = await new Promise((resolve, reject) => {
-    asyncForEach(amazonProducts, async (product, i, arr) => {
-      await session
-        .run("CREATE (p:Product {id: $id}) RETURN p", {
-          id: product.id
-        })
-        .catch(reject);
+  async.eachSeries(amazonProducts, (product, callback) => {
+    session
+      .run("CREATE (p:Product {id: $id}) RETURN p", {
+        id: product.id
+      })
+      .then(() => {
+        count++;
+        // register time
+        if (count % 1000 === 0 && count > 0) {
+          const end = process.hrtime(start);
+          start = process.hrtime();
+          console.log(`Inserted ${count} nodes  📦`);
+          console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+        }
+        callback()
+      })
+      .catch(err => {
+        callback(err)
+      });
+  }, function (err) {
+    if (err) return cb(err)
+    console.log(`Inserted ${count} nodes`);
 
-      count++;
-      // register time
-      if (count % 1000 === 0 && count > 0) {
-        const end = process.hrtime(start);
-        start = process.hrtime();
-        console.log(`Inserted ${count} nodes  📦`);
-        console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
-      }
-      if (i === arr.length - 1) resolve(count);
-    });
-  }).catch(handleError);
-  console.log(`Inserted ${nodeCount} nodes`);
-
-  const relationsCount = await new Promise((resolve, reject) => {
     //create all relations
     const relationsList = amazonProducts
       .filter(product => product.related && product.related.length)
@@ -84,9 +86,8 @@ exports.siw_neo = async (driver, handleError, cb) => {
         return product.related.map(rel => ({ id: product.id, related: rel }));
       })
       .reduce((acc, curr) => acc.concat(curr), []);
-
-    asyncForEach(relationsList, async ({ id, related }, i, arr) => {
-      await session
+    async.eachSeries(relationsList, ({ id, related }, callback2) => {
+      session
         .run(
           `
             MATCH (p:Product {id: $id})
@@ -95,23 +96,28 @@ exports.siw_neo = async (driver, handleError, cb) => {
           `,
           { id, related }
         )
-        .catch(reject);
-
-      count++;
-      relations++;
-      // register time
-      if (count % 1000 === 0 && relations > 0) {
-        const end = process.hrtime(start);
-        start = process.hrtime();
-        console.log(`Created ${relations} relations  🤝`);
-        console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
-      }
-      if (i === arr.length - 1) resolve();
-    });
-  }).catch(handleError);
-  console.log(`Inserted ${relationsCount} relations  🤝`);
-  session.close();
-  return cb();
+        .then(() => {
+          count++;
+          relations++;
+          // register time
+          if (count % 1000 === 0 && relations > 0) {
+            const end = process.hrtime(start);
+            start = process.hrtime();
+            console.log(`Created ${relations} relations  🤝`);
+            console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+          }
+          callback2()
+        })
+        .catch(err => {
+          callback2(err)
+        });
+    }, function (err) {
+      if (err) return cb(err)
+      console.log(`Inserted ${relations} relations  🤝`);
+      session.close();
+      return cb();
+    })
+  })
 };
 
 exports.queries_neo = (driver, handleError, cb) => {
@@ -223,80 +229,77 @@ exports.miw_orient = (server, handleError, cb) => {
     .catch(handleError);
 };
 
-exports.siw_orient = (server, handleError, cb) => {
+exports.siw_orient = async (server, handleError, cb) => {
   const db = server.use(process.env.ORIENT_DB);
   let start = process.hrtime();
   let count = 0;
   let relations = 0;
-  var products = {};
 
-  amazonProducts.map((product, i, arr) => {
+  async.eachSeries(amazonProducts, (product, callback) => {
     db.query(`CREATE VERTEX V SET id = ${product.id}`)
-      .then(result => {
-        products[product.id] = result;
+      .then(() => {
         count++;
-
-        // register time
         if (count % 1000 === 0 && count > 0) {
           const end = process.hrtime(start);
           start = process.hrtime();
           console.log(`Inserted ${count} nodes  📦`);
           console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
         }
-        if (i === arr.length - 1) {
-          console.log(`Inserted ${count} nodes`);
-          amazonProducts
-            .filter(product => product.related && product.related.length)
-            .map(product => {
-              return product.related.map(rel => ({ id: product.id, related: rel }));
-            })
-            .reduce((acc, curr) => acc.concat(curr), [])
-            .map(({ id, related }, i, arr) => {
-              db.create("EDGE", "E")
-                .from(products[id])
-                .to(products[related])
-                .then(_ => {
-                  count++;
-                  relations++;
-
-                  // register time
-                  if (count % 1000 === 0 && relations > 0) {
-                    const end = process.hrtime(start);
-                    start = process.hrtime();
-                    console.log(`Created ${relations} relations  🤝`);
-                    console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
-                  }
-                  if (i === arr.length - 1) {
-                    console.log(`Inserted ${relations} nodes`);
-                    db.close();
-                    return cb();
-                  }
-                })
-                .catch(err => {
-                  if (
-                    err.message !=
-                    'No edge has been created because no target vertices\r\n\tDB name="BDNR"'
-                  ) {
-                    console.log(err);
-                  }
-                });
-            });
-        }
+        console.log('aca')
+        callback()
       })
       .catch(err => {
-        console.log(err);
+        callback(err)
       });
-  });
+  }, function (err) {
+    if (err) return cb(err)
+    console.log(`Inserted ${count} nodes`);
+
+    const relationsList = amazonProducts
+      .filter(product => product.related && product.related.length)
+      .map(product => {
+        return product.related.map(rel => ({ id: product.id, related: rel }));
+      })
+      .reduce((acc, curr) => acc.concat(curr), []);
+    async.eachSeries(relationsList, ({ id, related }, callback2) => {
+      db.query(`CREATE EDGE E FROM (SELECT FROM V WHERE id = ${id}) TO (SELECT FROM V WHERE id = ${related})`)
+        .then(() => {
+          count++;
+          relations++;
+          // register time
+          if (count % 1000 === 0 && relations > 0) {
+            const end = process.hrtime(start);
+            start = process.hrtime();
+            console.log(`Created ${relations} relations  🤝`);
+            console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+          }
+          callback2()
+        })
+        .catch(err => {
+          callback2(err)
+        });
+    }, function (err) {
+      if (err) return cb(err)
+      console.log(`Inserted ${relations} relations  🤝`);
+      db.close();
+      return cb();
+    })
+  })
 };
 
 exports.delete_orient = (server, handleError, cb) => {
   const db = server.use(process.env.ORIENT_DB);
-  db.delete("VERTEX", "V")
+  db.delete("EDGE", "E")
     .one()
-    .then(function(del) {
-      db.close();
-      console.log(` ❌  Deleted all amazon graph`);
-      return cb();
+    .then(function (del) {
+      db.delete("VERTEX", "V")
+        .one()
+        .then(function (del) {
+          db.close();
+          console.log(` ❌  Deleted all amazon graph`);
+          return cb();
+        })
+        .catch(handleError);
     })
     .catch(handleError);
 };
