@@ -53,6 +53,11 @@ const choices = [
     short: "single insertion workload amazon OrientDB"
   },
   {
+    name: "🔍 (QW) Queries on amazon graph for OrientDB",
+    value: "queries_amazon_orient",
+    short: "queries workload amazon OrientDB"
+  },
+  {
     name: "Delete amazon graph for OrientDB",
     value: "delete_amazon_orient",
     short: "delete amazon OrientDB"
@@ -68,6 +73,11 @@ const choices = [
     name: "🐁 (SIW) Create youtube graph for OrientDB",
     value: "siw_youtube_orient",
     short: "single insertion workload youtube OrientDB"
+  },
+  {
+    name: "🔍 (QW) Queries on youtube graph for OrientDB",
+    value: "queries_youtube_orient",
+    short: "queries workload youtube OrientDB"
   },
   {
     name: "Delete youtube graph for OrientDB",

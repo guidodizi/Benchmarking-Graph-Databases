@@ -1,4 +1,4 @@
-const amazonProducts = require("../data/amazon-products.json");
+const amazonProducts = require("../data/amazon-test.json");
 const { asyncForEach } = require("../utils/async");
 const async = require('async');
 
@@ -27,7 +27,7 @@ exports.miw_neo = (driver, handleError, cb) => {
             `
               MATCH (p:Product {id: $id})
               MATCH (q:Product {id: $rel})
-              MERGE (p)-[:RELATED]->(q);
+              MERGE (p)-[:SIMILAR]->(q);
             `,
             {
               id: product.id,
@@ -146,7 +146,7 @@ exports.queries_neo = (driver, handleError, cb) => {
       session
         .run(`
         MATCH(p:Product)-[:RELATED]-(q)
-        RETURN q
+        RETURN p, q
         `)
         .then(() => {
           const end2 = process.hrtime(start2);
@@ -226,8 +226,8 @@ exports.miw_orient = (server, handleError, cb) => {
         if (nodesCreated["node" + rel]) {
           tx = tx.let("ed", e => {
             e.create("EDGE", "E")
-              .from("$node" + product.id)
-              .to("$node" + rel);
+              .from("SELECT FROM V WHERE id =" + product.id)
+              .to("SELECT FROM V WHERE id =" + rel);
           });
           relations++;
         }

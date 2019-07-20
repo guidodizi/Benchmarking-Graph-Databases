@@ -59,4 +59,6 @@ exports.miw_youtube_orient = cb => youtubeController.miw_orient(server, handleEr
 
 exports.siw_youtube_orient = cb => youtubeController.siw_orient(server, handleError, cb);
 
+exports.queries_youtube_orient = cb => youtubeController.queries_orient(server, handleError, cb);
+
 exports.delete_youtube_orient = cb => youtubeController.delete_orient(server, handleError, cb);

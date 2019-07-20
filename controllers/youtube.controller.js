@@ -1,8 +1,10 @@
-const youtubeUsers = require("../data/youtube-users.json");
-const youtubeGroups = require("../data/youtube-groups.json");
+const youtubeUsers = require("../data/youtube-users-test.json");
+const youtubeGroups = require("../data/youtube-groups-test.json");
 const { asyncForEach } = require("../utils/async");
 
 const async = require("async");
+var head = [...youtubeUsers].shift();
+var tail = [...youtubeGroups].sort(() => Math.random() - 0.5).slice(0, 100);
 
 exports.miw_neo = (driver, handleError, cb) => {
   const session = driver.session();
@@ -34,7 +36,7 @@ exports.miw_neo = (driver, handleError, cb) => {
             `
               MATCH (g:Group {id: $id})
               MATCH (u:User {id: $u})
-              MERGE (g)-[:MEMBER]->(u);
+              MERGE (u)-[:MEMBER]->(g);
             `,
             {
               id: group.id,
@@ -60,90 +62,157 @@ exports.miw_neo = (driver, handleError, cb) => {
     .catch(handleError);
 };
 
-exports.siw_neo = async (driver, handleError, cb) => {
+exports.siw_neo = (driver, handleError, cb) => {
   const session = driver.session();
   let count = 0;
   let relations = 0;
   let start = process.hrtime();
+  let firststart = process.hrtime();
 
-  const usersCount = await new Promise((resolve, reject) => {
-    asyncForEach(youtubeUsers, async (user, i, arr) => {
-      await session
-        .run("CREATE (p:User {id: $id}) RETURN p", {
-          id: user.id
-        })
-        .catch(reject);
-
+  async.eachSeries(youtubeUsers, function(user, callback) {
+    session
+    .run("CREATE (u:User {id: $id}) RETURN u", {
+      id: user.id
+    })
+    .then(() => {
       count++;
       // register time
       if (count % 1000 === 0 && count > 0) {
         const end = process.hrtime(start);
         start = process.hrtime();
-        console.log(`Inserted ${count} nodes  📦`);
+        console.log(`Inserted ${count} user nodes  📦`);
         console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
       }
-      if (i === arr.length - 1) resolve(count);
+      callback()
+    })
+    .catch(err => {
+      callback(err)
     });
-  }).catch(handleError);
-  console.log(`Inserted ${usersCount} nodes`);
+  }, function(err) {
+    if (err) return cb(err)
+    console.log(`Inserted ${count} user nodes`);
+    count = 0
 
-  const groupsCount = await new Promise((resolve, reject) => {
-    asyncForEach(youtubeGroups, async (group, i, arr) => {
-      await session
-        .run("CREATE (p:Group {id: $id}) RETURN p", {
-          id: group.id
-        })
-        .catch(reject);
+    async.eachSeries(youtubeGroups, function(group, callback2) {
+      session
+      .run("CREATE (g:Group {id: $id}) RETURN g", {
+        id: group.id
+      })
+      .then(() => {
+        count++;
+        // register time
+        if (count % 1000 === 0 && count > 0) {
+          const end = process.hrtime(start);
+          start = process.hrtime();
+          console.log(`Inserted ${count} group nodes  📦`);
+          console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+        }
+        callback2()
+      })
+      .catch(err => {
+        callback2(err)
+      });
+    }, function(err) {
+      if (err) return cb(err)
 
-      count++;
-      // register time
-      if (count % 1000 === 0 && count > 0) {
-        const end = process.hrtime(start);
-        start = process.hrtime();
-        console.log(`Inserted ${count} nodes  📦`);
-        console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
-      }
-      if (i === arr.length - 1) resolve(count);
-    });
-  }).catch(handleError);
-  console.log(`Inserted ${groupsCount} nodes`);
-
-  const relationsCount = await new Promise((resolve, reject) => {
-    //create all relations
-    const relationsList = youtubeGroups
+      console.log(`Inserted ${count} group nodes`);
+      count = 0
+      const relationsList = youtubeGroups
       .filter(group => group.members && group.members.length)
       .map(group => {
         return group.members.map(mem => ({ id: group.id, member: mem }));
       })
       .reduce((acc, curr) => acc.concat(curr), []);
-    asyncForEach(relationsList, async ({ id, member }, i, arr) => {
-      await session
+
+      async.eachSeries(relationsList, function({ id, member }, callback3) {
+        session
         .run(
           `
-            MATCH (u:User {id: $id})
-            MATCH (g:Group {id: $member})
+            MATCH (g:Group {id: $id})
+            MATCH (u:User {id: $u})
             MERGE (u)-[:MEMBER]->(g);
           `,
-          { id, member }
+          { id: id, u: member }
         )
-        .catch(reject);
-
-      count++;
-      relations++;
-      // register time
-      if (count % 1000 === 0 && relations > 0) {
-        const end = process.hrtime(start);
-        start = process.hrtime();
-        console.log(`Created ${relations} relations  🤝`);
+        .then(() => {
+          count++;
+          relations++;
+          // register time
+          if (count % 1000 === 0 && relations > 0) {
+            const end = process.hrtime(start);
+            start = process.hrtime();
+            console.log(`Created ${relations} relations  🤝`);
+            console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+          }
+          callback3()
+        })
+        .catch(err => {
+          callback3(err)
+        });
+      }, function(err) {
+        if (err) return cb(err)
+        const end = process.hrtime(firststart);
+        console.log(`Inserted ${relations} relations  🤝`);
         console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
-      }
-      if (i === arr.length - 1) resolve();
-    });
-  }).catch(handleError);
-  console.log(`Inserted ${relationsCount} relations  🤝`);
+        session.close();
+        return cb();
+      })
+    })
+  })
+};
 
-  session.close();
-  return cb();
+exports.queries_neo = (driver, handleError, cb) => {
+  const session = driver.session();
+
+  // find neighbours (FN)
+  let start1 = process.hrtime();
+  session
+    .run(`
+      MATCH(u:User)-->(g)
+      RETURN g
+    `)
+    .then(() => {
+      const end1 = process.hrtime(start1);
+      console.log(`⏰ FN: %ds %dms`, end1[0], end1[1] / 1000000);
+
+      // find adjacent nodes (FA)
+      let start2 = process.hrtime();
+      session
+        .run(`
+        MATCH(u:User)-[:MEMBER]-(g)
+        RETURN u, g
+        `)
+        .then(() => {
+          const end2 = process.hrtime(start2);
+          console.log(`⏰ FA: %ds %dms`, end2[0], end2[1] / 1000000);
+
+          // find shortest path (FS)
+          let start3 = process.hrtime();
+          async.eachSeries(tail, function (group, callback) {
+            session
+              .run(`
+                MATCH (u:User {id: $id}), (g:Group {id: $tail}),
+                  path = shortestpath((u)-[:MEMBER*]-(g))
+                RETURN path
+                `,
+                { id: head.id, tail: group.id })
+              .then(_ => {
+                callback()
+              })
+              .catch(err => {
+                callback(err)
+              })
+          }, function (err) {
+            if (err) return handleError
+            const end3 = process.hrtime(start3);
+            console.log(`⏰ FS: %ds %dms`, end3[0], end3[1] / 1000000);
+            session.close();
+            return cb();
+          })
+        })
+        .catch(handleError)
+    })
+    .catch(handleError)
 };
 
 exports.delete_neo = (driver, handleError, cb) => {
@@ -178,161 +247,187 @@ exports.miw_orient = async (server, handleError, cb) => {
   // nodesCreated['user' + first.id] = true
 
   // create all users
-  async.eachLimit(
-    youtubeUsers,
-    1000,
-    function(user, callback) {
-      tx = tx.let("user" + user.id, n => {
-        n.create("vertex", "U").set({
-          id: user.id
-        });
-        nodes++;
-        callback();
+  youtubeUsers.map(user => {
+    tx = tx.let("user" + user.id, n => {
+      n.create("vertex", "U").set({
+        id: user.id
       });
-    },
-    function(err) {
-      youtubeUsers.splice(0, 0, first);
+      nodes++;
+    });
+  })
+  youtubeUsers.splice(0, 0, first);
+  
+  // create all groups
+  youtubeGroups.map(group => {
+    tx = tx.let("group" + group.id, n => {
+      n.create("vertex", "G").set({
+        id: group.id
+      });
+      nodes++;
+    });
+  })
 
-      // create all groups
-      async.eachLimit(
-        youtubeGroups,
-        1000,
-        function(group, callback) {
-          tx = tx.let("group" + group.id, n => {
-            n.create("vertex", "G").set({
-              id: group.id
-            });
-            nodes++;
-            callback();
-          });
-        },
-        function(err) {
-          //create all relations
-          async.eachLimit(
-            youtubeUsers,
-            1000,
-            function(user, callback) {
-              if (user.belongs) {
-                async.eachLimit(
-                  user.belongs,
-                  1000,
-                  function(gr, callback2) {
-                    tx = tx.let("ed", e => {
-                      e.create("EDGE", "E")
-                        .from("$user" + user.id)
-                        .to("$group" + gr);
-                    });
-                    relations++;
-                    callback2();
-                  },
-                  function(err) {
-                    callback();
-                  }
-                );
-              }
-            },
-            function(err) {
-              tx.commit()
-                .all()
-                .then(_ => {
-                  db.close();
-                  const end = process.hrtime(start);
-                  console.log(`Inserted ${nodes} nodes  📦`);
-                  console.log(`Created ${relations} relations  🤝`);
-                  console.log(`⏰ Massive Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
-                  return cb();
-                })
-                .catch(handleError);
-            }
-          );
-        }
-      );
+  //create all relations
+  youtubeGroups.map(group => {
+    if (group.members) {
+      group.members.map(u => {
+        tx = tx.let("ed", e => {
+          e.create("EDGE", "E")
+            .from("SELECT FROM U WHERE id = " + u)
+            .to("SELECT FROM G WHERE id = " + group.id);
+        });
+        relations++;
+      });
     }
-  );
+  })
+
+  tx.commit()
+    .all()
+    .then(_ => {
+      db.close();
+      const end = process.hrtime(start);
+      console.log(`Inserted ${nodes} nodes  📦`);
+      console.log(`Created ${relations} relations  🤝`);
+      console.log(`⏰ Massive Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+      return cb();
+    })
+    .catch(handleError);
 };
 
 exports.siw_orient = async (server, handleError, cb) => {
   const db = server.use(process.env.ORIENT_DB);
   let start = process.hrtime();
+  let firststart = process.hrtime();
   let count = 0;
-  var users = {};
-  var groups = {};
+  let relations = 0;
 
   await Promise.all([db.query("CREATE CLASS U EXTENDS V"), db.query("CREATE CLASS G EXTENDS V")]);
 
   // create all users
-  youtubeUsers.map((user, i, arr) => {
-    console.log("user", user.id);
+  async.eachSeries(youtubeUsers, function(user, callback) {
     db.query(`CREATE VERTEX U SET id = ${user.id}`)
-      .then(u => {
-        users[user.id] = u;
+    .then(u => {
+      count++;
+
+      // register time
+      if (count % 1000 === 0 && count > 0) {
+        const end = process.hrtime(start);
+        start = process.hrtime();
+        console.log(`Inserted ${count} user nodes 📦`);
+        console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+      }
+      callback()
+    })
+    .catch(err => {
+      callback(err)
+    })
+  }, function(err) {
+    if (err) return cb(err)
+
+    console.log(`Inserted ${count} user nodes`);
+    count = 0
+
+    async.eachSeries(youtubeGroups, function(group, callback2) {
+      db.query(`CREATE VERTEX G SET id = ${group.id}`)
+      .then(g => {
         count++;
 
         // register time
         if (count % 1000 === 0 && count > 0) {
           const end = process.hrtime(start);
           start = process.hrtime();
-          console.log(`Inserted ${count} users  📦`);
+          console.log(`Inserted ${count} group nodes  📦`);
           console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
         }
-        if (i === arr.length - 1) {
-          console.log(`Inserted ${count} users`);
-
-          count = 0;
-          youtubeGroups.map((group, i, arr) => {
-            db.query(`CREATE VERTEX G SET id = ${group.id}`)
-              .then(g => {
-                groups[group.id] = g;
-                count++;
-
-                // register time
-                if (count % 1000 === 0 && count > 0) {
-                  const end = process.hrtime(start);
-                  start = process.hrtime();
-                  console.log(`Inserted ${count} nodes  📦`);
-                  console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
-                }
-                if (i === arr.length - 1) {
-                  console.log(`Inserted ${count} groups`);
-
-                  count = 0;
-                  //create all relations
-                  youtubeUsers.map((user, i, arr) => {
-                    if (user.belongs) {
-                      user.belongs.map(gr => {
-                        db.create("EDGE", "E")
-                          .from(users[user.id])
-                          .to(groups[gr])
-                          .then(_ => {
-                            count++;
-                            if (count % 1000 === 0 && count > 0) {
-                              const end = process.hrtime(start);
-                              start = process.hrtime();
-                              console.log(`Created ${count} relations  🤝`);
-                              console.log(
-                                `⏰ Single Insertion Workload: %ds %dms`,
-                                end[0],
-                                end[1] / 1000000
-                              );
-                            }
-                          })
-                          .catch(handleError);
-                      });
-                    }
-                    if (i === arr.length - 1) {
-                      console.log(`Inserted ${count} relations`);
-                      db.close();
-                      return cb();
-                    }
-                  });
-                }
-              })
-              .catch(handleError);
-          });
-        }
+        callback2()
       })
-      .catch(handleError);
-  });
+      .catch(err => {
+        console.log(err)
+        callback2(err)
+      })
+    }, function(err) {
+      if (err) return cb(err)
+
+      console.log(`Inserted ${count} group nodes`);
+      count = 0
+
+      const relationsList = youtubeGroups
+      .filter(group => group.members && group.members.length)
+      .map(group => {
+        return group.members.map(mem => ({ id: group.id, member: mem }));
+      })
+      .reduce((acc, curr) => acc.concat(curr), []);
+
+      async.eachSeries(relationsList, function({ id, member }, callback3) {
+        db.query(`CREATE EDGE E FROM (SELECT FROM U WHERE id = ${member}) 
+          TO (SELECT FROM G WHERE id =  ${id})`)
+        .then(_ => {
+          count++;
+          relations++;
+          // register time
+          if (count % 1000 === 0 && relations > 0) {
+            const end = process.hrtime(start);
+            start = process.hrtime();
+            console.log(`Created ${relations} relations  🤝`);
+            console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+          }
+          callback3()
+        })
+        .catch(err => {
+          callback3(err)
+        })
+      }, function(err) {
+        if (err) return cb(err)
+        const end = process.hrtime(firststart);
+        console.log(`Inserted ${relations} relations  🤝`);
+        console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
+        db.close();
+        return cb();
+      })
+    })
+  })
+};
+
+exports.queries_orient = (server, handleError, cb) => {
+  const db = server.use(process.env.ORIENT_DB);
+
+  // find neighbours (FN)
+  let start1 = process.hrtime();
+  db.query(`SELECT FROM V WHERE IN().size() > 0`)
+  .then(() => {
+    const end1 = process.hrtime(start1);
+    console.log(`⏰ FN: %ds %dms`, end1[0], end1[1] / 1000000);
+
+    // find adjacent nodes (FA)
+    let start2 = process.hrtime();
+    db.query(`SELECT FROM V WHERE IN().size() > 0 OR OUT().size() > 0`)
+    .then(() => {
+      const end2 = process.hrtime(start2);
+      console.log(`⏰ FA: %ds %dms`, end2[0], end2[1] / 1000000);
+
+      // find shortest path (FS)
+      let start3 = process.hrtime();
+      async.eachSeries(tail, function (group, callback) {
+        db.query(`SELECT shortestPath((SELECT FROM U WHERE id = ${head.id}), 
+          (SELECT FROM G WHERE id = ${group.id})) AS path
+        `)
+        .then(_ => {
+          callback()
+        })
+        .catch(err => {
+          callback(err)
+        })
+      }, function (err) {
+        if (err) return handleError
+        const end3 = process.hrtime(start3);
+        console.log(`⏰ FS: %ds %dms`, end3[0], end3[1] / 1000000);
+        db.close();
+        return cb();
+      })
+    })
+    .catch(handleError)
+  })
+  .catch(handleError)
 };
 
 exports.delete_orient = async (server, handleError, cb) => {
