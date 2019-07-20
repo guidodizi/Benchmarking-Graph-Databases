@@ -44,6 +44,8 @@ exports.miw_amazon_orient = cb => amazonController.miw_orient(server, handleErro
 
 exports.siw_amazon_orient = cb => amazonController.siw_orient(server, handleError, cb);
 
+exports.queries_amazon_orient = cb => amazonController.queries_orient(server, handleError, cb);
+
 exports.delete_amazon_orient = cb => amazonController.delete_orient(server, handleError, cb);
 
 // Youtube

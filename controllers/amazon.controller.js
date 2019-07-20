@@ -2,6 +2,10 @@ const amazonProducts = require("../data/amazon-products.json");
 const { asyncForEach } = require("../utils/async");
 const async = require('async');
 
+var data = [...amazonProducts];
+var head = data.shift();
+var tail = data.sort(() => Math.random() - 0.5).slice(0, 100);
+
 exports.miw_neo = (driver, handleError, cb) => {
   const session = driver.session();
   const transaction = session.writeTransaction(tx => {
@@ -55,6 +59,7 @@ exports.siw_neo = async (driver, handleError, cb) => {
   let count = 0;
   let relations = 0;
   let start = process.hrtime();
+  let firststart = process.hrtime();
 
   async.eachSeries(amazonProducts, (product, callback) => {
     session
@@ -113,7 +118,9 @@ exports.siw_neo = async (driver, handleError, cb) => {
         });
     }, function (err) {
       if (err) return cb(err)
+      const end = process.hrtime(firststart);
       console.log(`Inserted ${relations} relations  🤝`);
+      console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
       session.close();
       return cb();
     })
@@ -122,43 +129,56 @@ exports.siw_neo = async (driver, handleError, cb) => {
 
 exports.queries_neo = (driver, handleError, cb) => {
   const session = driver.session();
-  const transaction = session.writeTransaction(tx => {
-    // find neighbours (FN)
-    tx.run(`
+
+  // find neighbours (FN)
+  let start1 = process.hrtime();
+  session
+    .run(`
       MATCH(p:Product)-->(q)
       RETURN q
-    `);
-
-    // find adjacent nodes (FA)
-    tx.run(`
-      MATCH(p:Product)-[:RELATED]-(q)
-      RETURN q
-    `);
-
-    // find shortest path (FS)
-    const data = [...amazonProducts];
-    const head = data.shift();
-    const tail = data.sort(() => Math.random() - 0.5).slice(0, 100);
-    tail.map(product => {
-      tx.run(
-        `
-          MATCH (p:Product {id: $id}), (q:Product {id: $tail}),
-            path = shortestpath((p)-[:RELATED*]-(q))
-          RETURN path
-        `,
-        { id: head.id, tail: product.id }
-      );
-    });
-  });
-  let start = process.hrtime();
-  transaction
+    `)
     .then(() => {
-      session.close();
-      const end = process.hrtime(start);
-      console.log(`⏰ Query Workload: %ds %dms`, end[0], end[1] / 1000000);
-      return cb();
+      const end1 = process.hrtime(start1);
+      console.log(`⏰ FN: %ds %dms`, end1[0], end1[1] / 1000000);
+
+      // find adjacent nodes (FA)
+      let start2 = process.hrtime();
+      session
+        .run(`
+        MATCH(p:Product)-[:RELATED]-(q)
+        RETURN q
+        `)
+        .then(() => {
+          const end2 = process.hrtime(start2);
+          console.log(`⏰ FA: %ds %dms`, end2[0], end2[1] / 1000000);
+
+          // find shortest path (FS)
+          let start3 = process.hrtime();
+          async.eachSeries(tail, function (product, callback) {
+            session
+              .run(`
+                MATCH (p:Product {id: $id}), (q:Product {id: $tail}),
+                  path = shortestpath((p)-[:RELATED*]-(q))
+                RETURN path
+                `,
+                { id: head.id, tail: product.id })
+              .then(_ => {
+                callback()
+              })
+              .catch(err => {
+                callback(err)
+              })
+          }, function (err) {
+            if (err) return handleError
+            const end3 = process.hrtime(start3);
+            console.log(`⏰ FS: %ds %dms`, end3[0], end3[1] / 1000000);
+            session.close();
+            return cb();
+          })
+        })
+        .catch(handleError)
     })
-    .catch(handleError);
+    .catch(handleError)
 };
 
 exports.delete_neo = (driver, handleError, cb) => {
@@ -199,7 +219,6 @@ exports.miw_orient = (server, handleError, cb) => {
     nodesCreated["node" + product.id] = true;
   });
   amazonProducts.splice(0, 0, first);
-  console.log(nodesCreated);
   amazonProducts.map(product => {
     if (product.related) {
       product.related.map(rel => {
@@ -232,6 +251,7 @@ exports.miw_orient = (server, handleError, cb) => {
 exports.siw_orient = async (server, handleError, cb) => {
   const db = server.use(process.env.ORIENT_DB);
   let start = process.hrtime();
+  let firststart = process.hrtime();
   let count = 0;
   let relations = 0;
 
@@ -245,7 +265,6 @@ exports.siw_orient = async (server, handleError, cb) => {
           console.log(`Inserted ${count} nodes  📦`);
           console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
         }
-        console.log('aca')
         callback()
       })
       .catch(err => {
@@ -276,15 +295,60 @@ exports.siw_orient = async (server, handleError, cb) => {
           callback2()
         })
         .catch(err => {
+          console.log(err)
           callback2(err)
         });
     }, function (err) {
       if (err) return cb(err)
+      const end = process.hrtime(firststart);
       console.log(`Inserted ${relations} relations  🤝`);
+      console.log(`⏰ Single Insertion Workload: %ds %dms`, end[0], end[1] / 1000000);
       db.close();
       return cb();
     })
   })
+};
+
+exports.queries_orient = (server, handleError, cb) => {
+  const db = server.use(process.env.ORIENT_DB);
+
+  // find neighbours (FN)
+  let start1 = process.hrtime();
+  db.query(`SELECT FROM V WHERE IN().size() > 0`)
+  .then(() => {
+    const end1 = process.hrtime(start1);
+    console.log(`⏰ FN: %ds %dms`, end1[0], end1[1] / 1000000);
+
+    // find adjacent nodes (FA)
+    let start2 = process.hrtime();
+    db.query(`SELECT FROM V WHERE IN().size() > 0 OR OUT().size() > 0`)
+    .then(() => {
+      const end2 = process.hrtime(start2);
+      console.log(`⏰ FA: %ds %dms`, end2[0], end2[1] / 1000000);
+
+      // find shortest path (FS)
+      let start3 = process.hrtime();
+      async.eachSeries(tail, function (product, callback) {
+        db.query(`SELECT shortestPath((SELECT FROM V WHERE id = ${head.id}), 
+          (SELECT FROM V WHERE id = ${product.id})) AS path
+        `)
+        .then(_ => {
+          callback()
+        })
+        .catch(err => {
+          callback(err)
+        })
+      }, function (err) {
+        if (err) return handleError
+        const end3 = process.hrtime(start3);
+        console.log(`⏰ FS: %ds %dms`, end3[0], end3[1] / 1000000);
+        db.close();
+        return cb();
+      })
+    })
+    .catch(handleError)
+  })
+  .catch(handleError)
 };
 
 exports.delete_orient = (server, handleError, cb) => {
