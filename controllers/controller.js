@@ -53,6 +53,8 @@ exports.miw_youtube_neo = cb => youtubeController.miw_neo(driver, handleError, c
 
 exports.siw_youtube_neo = cb => youtubeController.siw_neo(driver, handleError, cb);
 
+exports.queries_youtube_neo = cb => youtubeController.queries_neo(driver, handleError, cb);
+
 exports.delete_youtube_neo = cb => youtubeController.delete_neo(driver, handleError, cb);
 
 exports.miw_youtube_orient = cb => youtubeController.miw_orient(server, handleError, cb);

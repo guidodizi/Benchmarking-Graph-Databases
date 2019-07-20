@@ -1,4 +1,4 @@
-const amazonProducts = require("../data/amazon-test.json");
+const amazonProducts = require("../data/amazon-products.json");
 const { asyncForEach } = require("../utils/async");
 const async = require('async');
 

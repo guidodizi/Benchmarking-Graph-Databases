@@ -1,5 +1,5 @@
-const youtubeUsers = require("../data/youtube-users-test.json");
-const youtubeGroups = require("../data/youtube-groups-test.json");
+const youtubeUsers = require("../data/youtube-users.json");
+const youtubeGroups = require("../data/youtube-groups.json");
 const { asyncForEach } = require("../utils/async");
 
 const async = require("async");
