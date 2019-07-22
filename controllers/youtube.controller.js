@@ -1,5 +1,5 @@
 const youtubeUsers = require("../data/youtube-users.json");
-const youtubeGroups = require("../data/youtube-groups.json");
+const youtubeGroups = require("../data/youtube-groups-less.json");
 const { asyncForEach } = require("../utils/async");
 
 const async = require("async");
@@ -218,7 +218,7 @@ exports.queries_neo = (driver, handleError, cb) => {
 exports.delete_neo = (driver, handleError, cb) => {
   const session = driver.session();
   session
-    .run("MATCH(u:User) MATCH(g:Group) DETACH DELETE u, g")
+    .run("MATCH (n) DETACH DELETE n")
     .then(result => {
       session.close();
       console.log(` ❌  Deleted all youtube graph`);
